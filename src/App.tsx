@@ -15,9 +15,9 @@ const App = () => {
   const [error, setError] = useState("");
   const [onlineUsers, setOnlineUsers] = useState(0);
 
-  const inputRef = useRef(null);
-  const textareaRef = useRef(null);
-  const previewRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const isSyncingRef = useRef(false);
 
   useEffect(() => {
@@ -41,7 +41,6 @@ const App = () => {
     });
 
     if (!storedUsername) {
-      // Ensure input is focused on initial render for new users
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
@@ -56,7 +55,6 @@ const App = () => {
 
   useEffect(() => {
     if (isConnected) {
-      // Focus on the markdown editor after connecting
       setTimeout(() => {
         textareaRef.current?.focus();
       }, 100);
@@ -69,26 +67,24 @@ const App = () => {
       setError("Username cannot be empty!");
       return;
     }
-
     localStorage.setItem("username", trimmedUsername);
     socket.emit("joinRoom", trimmedUsername);
     setIsConnected(true);
     setError("");
   };
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
       handleUsernameSubmit();
     }
   };
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMarkdown(e.target.value);
     socket.emit("markdownChange", e.target.value);
   };
 
-  // Sync scrolling: when the editor is scrolled, update the preview.
   const handleEditorScroll = () => {
     if (isSyncingRef.current) return;
     const editor = textareaRef.current;
@@ -102,7 +98,6 @@ const App = () => {
     }, 10);
   };
 
-  // Sync scrolling: when the preview is scrolled, update the editor.
   const handlePreviewScroll = () => {
     if (isSyncingRef.current) return;
     const editor = textareaRef.current;
@@ -171,7 +166,7 @@ const App = () => {
   );
 };
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
   containerLoading: {
     display: "flex",
     flexDirection: "column",
