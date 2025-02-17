@@ -1,11 +1,16 @@
 import io from "socket.io-client";
 import ReactMarkdown from "react-markdown";
 import { useState, useEffect, useRef } from "react";
-
-import './github-markdown.css';
 import { SERVER_SOCKET } from "./config";
 
-const socket = io(SERVER_SOCKET);
+import "./github-markdown.css";
+
+const socket = io(SERVER_SOCKET, {
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+});
 
 const App = () => {
   const [markdown, setMarkdown] = useState("");
@@ -14,11 +19,19 @@ const App = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState("");
   const [onlineUsers, setOnlineUsers] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const isSyncingRef = useRef(false);
+  const scrollPositionsRef = useRef({ editorScroll: 0, previewScroll: 0 });
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     const storedUsername = localStorage.getItem("username");
@@ -29,6 +42,20 @@ const App = () => {
     }
 
     socket.on("connect", () => {
+      setLoading(false);
+    });
+
+    socket.on("disconnect", () => {
+      if (textareaRef.current) {
+        scrollPositionsRef.current.editorScroll = textareaRef.current.scrollTop;
+      }
+      if (previewRef.current) {
+        scrollPositionsRef.current.previewScroll = previewRef.current.scrollTop;
+      }
+      setLoading(true);
+    });
+
+    socket.on("reconnect", () => {
       setLoading(false);
     });
 
@@ -48,10 +75,25 @@ const App = () => {
 
     return () => {
       socket.off("connect");
+      socket.off("disconnect");
+      socket.off("reconnect");
       socket.off("updateMarkdown");
       socket.off("onlineUsers");
     };
   }, []);
+
+  useEffect(() => {
+    if (!loading && isConnected) {
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.scrollTop = scrollPositionsRef.current.editorScroll;
+        }
+        if (previewRef.current) {
+          previewRef.current.scrollTop = scrollPositionsRef.current.previewScroll;
+        }
+      }, 500);
+    }
+  }, [loading, isConnected, markdown]);
 
   useEffect(() => {
     if (isConnected) {
@@ -93,6 +135,7 @@ const App = () => {
     const ratio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
     isSyncingRef.current = true;
     preview.scrollTop = ratio * (preview.scrollHeight - preview.clientHeight);
+    scrollPositionsRef.current.editorScroll = editor.scrollTop;
     setTimeout(() => {
       isSyncingRef.current = false;
     }, 10);
@@ -106,68 +149,43 @@ const App = () => {
     const ratio = preview.scrollTop / (preview.scrollHeight - preview.clientHeight);
     isSyncingRef.current = true;
     editor.scrollTop = ratio * (editor.scrollHeight - editor.clientHeight);
+    scrollPositionsRef.current.previewScroll = preview.scrollTop;
     setTimeout(() => {
       isSyncingRef.current = false;
     }, 10);
   };
 
-  if (loading) {
-    return (
-      <div style={styles.containerLoading}>
-        Connecting to server...
-      </div>
-    );
-  }
+  const appContainerStyle: React.CSSProperties = {
+    display: "flex",
+    height: "100vh",
+    flexDirection: isMobile ? "column" : "row",
+  };
 
-  if (!isConnected) {
-    return (
-      <div style={styles.containerUsername}>
-        <h1 style={styles.usernameHeader}>Please enter your name</h1>
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          onKeyDown={handleKeyDown}
-          style={styles.usernameInput}
-          placeholder="Your name"
-          ref={inputRef}
-          autoFocus
-        />
-        <button onClick={handleUsernameSubmit} style={styles.joinButton}>
-          Join
-        </button>
-        {error && <p style={styles.errorMessage}>{error}</p>}
-      </div>
-    );
-  }
+  const textareaStyle: React.CSSProperties = {
+    width: isMobile ? "100%" : "50%",
+    height: isMobile ? "50%" : "100%",
+    padding: "15px",
+    fontSize: "1rem",
+    borderRight: isMobile ? "none" : "1px solid #888",
+    borderBottom: isMobile ? "1px solid #888" : "none",
+    resize: "none",
+    outline: "none",
+    backgroundColor: "#1a1a1a",
+    color: "white",
+    boxSizing: "border-box",
+  };
 
-  return (
-    <div style={styles.appContainer}>
-      <textarea
-        ref={textareaRef}
-        value={markdown}
-        onChange={handleChange}
-        onScroll={handleEditorScroll}
-        placeholder="Type your markdown here..."
-        style={styles.textarea}
-      />
-      <div
-        className="markdown-body"
-        style={styles.preview}
-        ref={previewRef}
-        onScroll={handlePreviewScroll}
-      >
-        <ReactMarkdown>{markdown}</ReactMarkdown>
-      </div>
-      <div style={styles.onlineUsers}>
-        Online users: {onlineUsers}
-      </div>
-    </div>
-  );
-};
+  const previewStyle: React.CSSProperties = {
+    width: isMobile ? "100%" : "50%",
+    height: isMobile ? "50%" : "100%",
+    padding: "15px",
+    backgroundColor: "#f0f0f0",
+    overflowY: "auto",
+    color: "black",
+    boxSizing: "border-box",
+  };
 
-const styles: Record<string, React.CSSProperties> = {
-  containerLoading: {
+  const containerLoadingStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
@@ -176,8 +194,9 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: "black",
     color: "white",
     fontFamily: "Arial, sans-serif",
-  },
-  containerUsername: {
+  };
+
+  const containerUsernameStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
@@ -187,12 +206,14 @@ const styles: Record<string, React.CSSProperties> = {
     color: "white",
     fontFamily: "Arial, sans-serif",
     textAlign: "center",
-  },
-  usernameHeader: {
+  };
+
+  const usernameHeaderStyle: React.CSSProperties = {
     fontSize: "2rem",
     marginBottom: "1rem",
-  },
-  usernameInput: {
+  };
+
+  const usernameInputStyle: React.CSSProperties = {
     background: "transparent",
     border: "none",
     borderBottom: "2px solid white",
@@ -201,8 +222,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: "white",
     padding: "5px",
     outline: "none",
-  },
-  joinButton: {
+  };
+
+  const joinButtonStyle: React.CSSProperties = {
     marginTop: "1rem",
     padding: "10px 20px",
     border: "1px solid white",
@@ -211,35 +233,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "5px",
     cursor: "pointer",
     transition: "0.3s",
-  },
-  errorMessage: {
+  };
+
+  const errorMessageStyle: React.CSSProperties = {
     color: "red",
     marginTop: "1rem",
-  },
-  appContainer: {
-    display: "flex",
-    height: "100vh",
-  },
-  textarea: {
-    width: "50%",
-    height: "100%",
-    padding: "15px",
-    fontSize: "1rem",
-    borderRight: "1px solid #888",
-    resize: "none",
-    outline: "none",
-    backgroundColor: "#1a1a1a",
-    color: "white",
-  },
-  preview: {
-    width: "50%",
-    height: "100%",
-    padding: "15px",
-    backgroundColor: "#f0f0f0",
-    overflowY: "auto",
-    color: "black",
-  },
-  onlineUsers: {
+  };
+
+  const onlineUsersStyle: React.CSSProperties = {
     position: "fixed",
     bottom: "10px",
     right: "20px",
@@ -248,7 +249,61 @@ const styles: Record<string, React.CSSProperties> = {
     color: "white",
     borderRadius: "4px",
     fontSize: "14px",
-  },
+  };
+
+  if (loading) {
+    return (
+      <div style={containerLoadingStyle}>
+        Connecting to server...
+      </div>
+    );
+  }
+
+  if (!isConnected) {
+    return (
+      <div style={containerUsernameStyle}>
+        <h1 style={usernameHeaderStyle}>Please enter your name</h1>
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          onKeyDown={handleKeyDown}
+          style={usernameInputStyle}
+          placeholder="Your name"
+          ref={inputRef}
+          autoFocus
+        />
+        <button onClick={handleUsernameSubmit} style={joinButtonStyle}>
+          Join
+        </button>
+        {error && <p style={errorMessageStyle}>{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={appContainerStyle}>
+      <textarea
+        ref={textareaRef}
+        value={markdown}
+        onChange={handleChange}
+        onScroll={handleEditorScroll}
+        placeholder="Type your markdown here..."
+        style={textareaStyle}
+      />
+      <div
+        className="markdown-body"
+        style={previewStyle}
+        ref={previewRef}
+        onScroll={handlePreviewScroll}
+      >
+        <ReactMarkdown>{markdown}</ReactMarkdown>
+      </div>
+      <div style={onlineUsersStyle}>
+        Online users: {onlineUsers}
+      </div>
+    </div>
+  );
 };
 
 export default App;
