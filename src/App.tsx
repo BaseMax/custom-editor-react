@@ -25,7 +25,6 @@ const App = () => {
 
   return (
     <div className="flex h-screen">
-      {/* Editor */}
       <textarea
         value={markdown}
         onChange={handleChange}
@@ -33,7 +32,6 @@ const App = () => {
         className="w-1/2 h-full p-4 text-lg border-r border-gray-300 resize-none"
       />
 
-      {/* Live Preview */}
       <div className="w-1/2 h-full p-4 bg-gray-100 overflow-auto">
         <ReactMarkdown>{markdown}</ReactMarkdown>
       </div>
