@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "tailwind": "npx tailwindcss -i ./src/index.css -o ./dist/output.css --watch",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",

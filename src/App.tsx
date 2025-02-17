@@ -1,8 +1,8 @@
 import io from "socket.io-client";
 import ReactMarkdown from "react-markdown";
 import React, { useState, useEffect } from "react";
-
-import { SERVER_SOCKET } from './config';
+import { SERVER_SOCKET } from "./config";
+import "./styles.css"; // Import the CSS file
 
 const socket = io(SERVER_SOCKET);
 
@@ -49,28 +49,21 @@ const App = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-black text-white text-2xl">
-        Connecting to server...
-      </div>
-    );
+    return <div className="container loading">Connecting to server...</div>;
   }
 
   if (!isConnected) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-black text-white">
-        <h1 className="text-3xl mb-4">Please enter your name</h1>
+      <div className="container username-container">
+        <h1>Please enter your name</h1>
         <input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="bg-transparent border-b-2 border-white text-center text-lg focus:outline-none"
+          className="username-input"
           placeholder="Your name"
         />
-        <button
-          onClick={handleUsernameSubmit}
-          className="mt-4 px-6 py-2 border border-white text-white rounded hover:bg-white hover:text-black transition"
-        >
+        <button onClick={handleUsernameSubmit} className="join-button">
           Join
         </button>
       </div>
@@ -78,16 +71,16 @@ const App = () => {
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="app-container">
       <textarea
         value={markdown}
         onChange={handleChange}
         placeholder="Type your markdown here..."
-        className="w-1/2 h-full p-4 text-lg border-r border-gray-300 resize-none focus:outline-none bg-gray-900 text-white"
+        className="textarea"
       />
 
-      <div className="w-1/2 h-full p-4 bg-gray-100 overflow-auto">
-        <ReactMarkdown className="prose">{markdown}</ReactMarkdown>
+      <div className="preview">
+        <ReactMarkdown>{markdown}</ReactMarkdown>
       </div>
     </div>
   );
