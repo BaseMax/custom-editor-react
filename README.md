@@ -20,7 +20,6 @@ Welcome to the **Custom Editor React** project! This is a front-end implementati
 - **React.js** - Front-end library for building UI components.
 - **TypeScript** - Ensures type safety and better development experience.
 - **Socket.IO** - Enables real-time communication with the backend.
-- **Tailwind CSS** - Provides a clean and modern UI.
 
 ## Getting Started
 
