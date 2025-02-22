@@ -4,6 +4,8 @@ Welcome to the **Custom Editor React** project! This is a front-end implementati
 
 > Back-End repository: https://github.com/BaseMax/editor-realtime-collaborative
 
+![Custom Editor React](demo.jpg)
+
 ## Features
 
 - **Real-Time Collaboration:** Multiple users can edit the same document simultaneously.
